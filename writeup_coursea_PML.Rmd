@@ -80,10 +80,10 @@ df_tst20x[,"magnet_forearm_z"] <- as.numeric(df_tst20x[,"magnet_forearm_z"])
 #pred20=predict(rf,df_tst20x)
 
 ```
-You can also embed plots, for example:
-
+For Gini Plot, we see that X,timestamp doees not help much for information gain which agrees wiht intuition
 ```{r, echo=FALSE}
-#plot(cars)
+varImpPlot(rf)
+
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+

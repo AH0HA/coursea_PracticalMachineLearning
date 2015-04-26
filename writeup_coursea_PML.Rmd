@@ -1,0 +1,89 @@
+---
+title: "Coursea Practical Machine Learning"
+author: "Kazu Yama"
+date: "4/26/2015"
+output: html_document
+---
+
+First we load and cleanse the data,
+Based on the distribution of pml_testing.csv, it makes sense
+to trim the columns with mostly NA Div/0 like so
+
+Remember to set seed to make reproduable result
+
+
+```{r}
+set.seed(88088)
+dftrain<-read.table("/home/ubuntu/Downloads/pml-training.csv", header=T, sep=",", na.strings=c("#DIV/0!","","NA"))
+df <- dftrain[,colSums(is.na(dftrain))<nrow(dftrain)-1000]
+print ("dimension of orignal dataset")
+dim(dftrain)
+print ("dimension of trimmed dataset")
+dim(df)
+library(randomForest)
+#print ("Impute trimmed dataset if needed??")
+#df.imputed <- rfImpute(classe ~ ., df)
+```
+We are using amazon aws 36 cpu node R-studio server;however,caret cannot installed
+so we will do a random 90-10 random sample for validation against the benchmark
+
+```{r}
+trainNum=floor(dim(df)[1]*0.9)
+trnIdx<-sample(nrow(df), trainNum)
+df_trn=df[trnIdx, ]
+df_tst=df[-trnIdx, ]
+print ("dimension of train dataset")
+dim(df_trn)
+print ("dimension of test dataset")
+dim(df_tst)
+```
+Now we use random forest with parallel like so
+```{r}
+library(doMC)
+registerDoMC(cores=32)
+library(foreach)
+library(randomForest)
+library(doParallel)
+xx=df_trn[,-60]
+yy=df_trn[,60]
+rf <- foreach(ntree=rep(100, 32), .combine=combine, .multicombine=TRUE,
+              .packages='randomForest') %dopar% {
+                #randomForest(dat2[,-160], df$classe, ntree=ntree,nodesize=100,na.action=na.omit)
+                #randomForest(classe~.,data=df, ntree=ntree,nodesize=100)
+                #randomForest(x=xx,y=yy, ntree=ntree,nodesize=100,importance=TRUE)
+                randomForest(classe~.,data=df_trn, ntree=ntree,nodesize=100)
+              }
+
+
+pred=predict(rf,df_tst[,-60])
+#confusionMatrix(pred, df_tst$classe)
+df_tst$pred<-pred
+acc=dim(df_tst[df_tst$pred==df_tst$classe,])[1]/dim(df_tst)[1]
+print("The overall accuracy without caret confusionMatrix")
+format(round(acc, 4), nsmall = 4)
+```
+
+Predict the 20 cases 
+```{r}
+dftest<-read.table("/home/ubuntu/Downloads/pml-testing.csv", header=T, sep=",", na.strings=c("#DIV/0!","","NA"))
+df_tst20 <- dftest[,colSums(is.na(dftrain))<nrow(dftrain)-1000]
+df_tst20x<-df_tst20[,-60]
+#df_tst20x$classe<-"X"
+#str(df_trn)
+#str(df_tst20x)
+# $ magnet_dumbbell_z 
+ #$ magnet_forearm_y
+ #$ magnet_forearm_z
+df_tst20x[,"magnet_dumbbell_z"] <- as.numeric(df_tst20x[,"magnet_dumbbell_z"])
+df_tst20x[,"magnet_forearm_y"] <- as.numeric(df_tst20x[,"magnet_forearm_y"])
+df_tst20x[,"magnet_forearm_z"] <- as.numeric(df_tst20x[,"magnet_forearm_z"])
+#pred20=predict(rf,df_tst20x)
+
+```
+You can also embed plots, for example:
+
+```{r, echo=FALSE}
+#plot(cars)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
